@@ -157,16 +157,17 @@
           loop:
           - { regexp: '^.*Port .*', line: 'Port {{ ssh_port }}' }
           - { regexp: '^.*AuthorizedKeysFile .*', line: 'AuthorizedKeysFile  /etc/ssh/authorized_keys' }  ## enforce strict ssh key access
-          ansible.builtin.replace:
+          lineinfile:
             path: '{{ root_path }}/etc/ssh/sshd_config'
             regexp: "{{ item.regexp }}"
-            replace: "{{ item.line }}"
+            line: "{{ item.line }}"
             backup: no
-          when: img_type != "dietpi"
+            create: yes
+          ##when: img_type != "dietpi"
 
         - name: Install SSH key
           shell: 'cp {{ ssh_pub_key }} {{ root_path }}/etc/ssh/authorized_keys'
-          when: img_type != "dietpi"
+          ##when: img_type != "dietpi"
 
         - name: Set the Hostname
           copy:
