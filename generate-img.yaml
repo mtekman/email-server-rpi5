@@ -1,0 +1,151 @@
+- name: Generate the configured Raspberry Pi
+  vars_files: "./private_vars.yml"
+  vars:
+    install_target : '{{ install_target }}'  ## user needs to add --extra-vars="install_target=/dev/blah"
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Download and mount the Dietpi image
+      vars:
+        base_img : "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2024-03-15/2024-03-15-raspios-bookworm-arm64-lite.img.xz"
+        base_md5 : "sha256:58a3ec57402c86332e67789a6b8f149aeeb4e7bb0a16c9388a66ea6e07012e45"
+        # base_img : "https://dietpi.com/downloads/images/testing/DietPi_RPi5-ARMv8-Bookworm.img.xz"
+        # base_md5 : "sha256:fe0961a73889e229a699801894dfa53452c4f8046bcfeaab1fb2bb86f51fbe5b"
+
+      block:
+      - name: Ensure necessary packages are installed
+        pacman:
+          name:
+            - qemu-full
+            - libguestfs
+          state: present
+          update_cache: yes
+
+      - name: Download OS image file
+        get_url:
+          url : '{{ base_img }}'
+          dest: '{{ tmp_img }}.xz'
+          checksum: '{{ base_md5 }}'
+          mode: 'a+wrx'
+
+      - name: Create a mount point directories
+        file:
+          path: '{{ item }}'
+          state: directory
+        loop:
+          - '{{ boot_path }}'
+          - '{{ root_path }}'
+
+      - name: Extract the xz image
+        command: xz -d '{{ tmp_img }}.xz'
+        args:
+          creates: '{{ tmp_img }}'
+
+
+    - name: Configure the startup params
+      vars:
+        boot_part: /dev/sda1
+        root_part: /dev/sda2
+      block:
+        - name: Mount the iso (boot partition)
+          environment:
+            LIBGUESTFS_DEBUG: 1
+            LIBGUESTFS_TRACE: 1
+          shell: |
+            guestmount --format=raw -o allow_other -a '{{ tmp_img }}' -m '{{ boot_part }}' '{{ boot_path }}' 2>> /tmp/errors.txt
+          args:
+            creates: |
+              '{{ boot_path }}/config.txt'
+
+        - name: Replace config lines
+          loop: ## the lines are added by default if not found
+            - { regexp: '^.*camera_auto_detect.*', line: 'camera_auto_detect=0' }
+            - { regexp: '^.*hdmi_safe.*', line: 'hdmi_safe=1' }
+            - { regexp: '^.*hdmi_blanking.*', line: 'hdmi_blanking=0' }
+            - { regexp: '^.*disable_fw_kms_setup.*', line: 'disable_fw_kms_setup=1' }
+            - { regexp: '^.*disable_overscan.*', line: 'disable_overscan=1' }
+            - { regexp: '^.*display_auto_detect.*', line: 'display_auto_detect=0' }
+            - { regexp: '^.*display_hdmi_rotate.*', line: 'display_hdmi_rotate=3' }
+            - { regexp: '^.*disable_splash.*', line: 'disable_splash=1' }
+            - { regexp: '^.*enable_uart.*', line:  'enable_uart=0' }
+            - { regexp: '^.*temp_limit.*', line:  'temp_limit=50' }
+            - { regexp: '^.*initial_turbo.*', line:  'initial_turbo=20' }
+            - { regexp: '^.*arm_boost.*', line:  'arm_boost=1' } ## raspbian, not dietpi
+            - { regexp: '^.*arm_64bit.*', line:  'arm_64bit=1' }
+            - { regexp: '^.*dtoverlay.*', line:  'dtoverlay=vc4-kms-v3d,noaudio,disable-wifi,disable-bt' }
+            - { regexp: '^.*dtparam.*', line: '' }  ## first delete all occurences, since it has multiple
+            - { regexp: 'disable-bt$', line: '\ndtparam=audio,sd_poll_once'}
+          ansible.builtin.replace:
+            path: '{{ boot_path }}/config.txt'
+            regexp: "{{ item.regexp }}"
+            replace: "{{ item.line }}"
+            backup: no
+         
+        - name: Unmount the boot partition
+          shell: |
+            sync
+            umount '{{ boot_path }}'
+
+
+        - name: Mount the iso (root partition)
+          environment:
+            LIBGUESTFS_DEBUG: 1
+            LIBGUESTFS_TRACE: 1
+          shell: |
+            guestmount --format=raw -o allow_other -a '{{ tmp_img }}' -m '{{ root_part }}' '{{ root_path }}' 2> /tmp/errors.txt
+          args:
+            creates: |
+              '{{ root_path }}/etc/dhcpcd.conf'
+
+        - name: Set the static ip
+          copy:
+            dest: '{{ root_path }}/etc/dhcpcd.conf'
+            content: |
+              interface eth0
+              static_routers={{ ip_gateway }}
+              static domain_name_servers=1.1.1.1
+              static ip_address={{ ip_static }}
+
+        - name: Set the SSH config
+          loop:
+          - { regexp: '^.*Port .*', line: 'Port {{ ssh_port }}' }
+          - { regexp: '^.*AuthorizedKeysFile .*', line: 'AuthorizedKeysFile  /etc/ssh/authorized_keys' }  ## enforce strict ssh key access
+          ansible.builtin.replace:
+            path: '{{ root_path }}/etc/ssh/sshd_config'
+            regexp: "{{ item.regexp }}"
+            replace: "{{ item.line }}"
+            backup: no
+
+        - name: Install SSH key
+          shell: 'cp {{ ssh_pub_key }} {{ root_path }}/etc/ssh/authorized_keys'
+
+        - name: Set the Hostname
+          copy:
+            dest: '{{ root_path }}/etc/hostname'
+            content: '{{ hostname_img }}'
+
+        - name: Unmount the root partition
+          shell: |
+            sync
+            umount '{{ root_path }}'
+
+        - name: Cleanup mount points
+          shell: |
+            rmdir '{{ boot_path }}'
+            rmdir '{{ root_path }}'
+
+        - name: Move changed ISO
+          command: 'mv {{ tmp_img }} {{ fix_img }}'
+
+    - name: Install changed ISO to disk
+      block:
+       - name: DD to disk
+         shell: 'dd if={{ fix_img }} of={{ install_target }} status=progress bs=1M; sync;'
+         register: dd_comm
+       - debug: msg='{{ dd_comm.stdout }}'
+       - debug: msg='{{ dd_comm.stderr }}'
+ 
+       - name: Cleanup
+         debug: msg="Finished building and installing image to disk"
+       
+        
