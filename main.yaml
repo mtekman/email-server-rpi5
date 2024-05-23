@@ -1,0 +1,23 @@
+- name: Generate the Image
+  import_playbook: playbooks/generate-img.yaml
+
+- hosts: rpi5
+  gather_facts: no  ## it's not up yet, don't pull metrics
+  tasks:
+    - name: Wait for DietPi SSH access
+      wait_for_connection:
+        delay: 60
+        connect_timeout: 8
+        sleep: 20    ## check every
+        timeout: 500 ## max wait
+
+    - name: Wait for DietPi global setup to complete
+      wait_for:
+        path: /boot/dietpi/.install_stage
+        search_regex: 2
+
+- name: Configure Firewall, Desktop, and Touchpad
+  import_playbook: playbooks/configure-rpi5.yaml
+
+- name: Install Email Server
+  import_playbook: playbooks/setup-email.yaml
