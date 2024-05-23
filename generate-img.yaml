@@ -1,8 +1,11 @@
 - name: Generate the configured Raspberry Pi
-  vars_files: "./private_vars.yml"
   vars:
     img_type: "dietpi"
     install_target : '{{ install_target }}'  ## user needs to add --extra-vars="install_target=/dev/blah"
+    tmp_img : /tmp/rpi5.img
+    fix_img : /tmp/rpi5_modified.img
+    root_path: /mnt/other/mounted_iso_root
+    boot_path: /mnt/other/mounted_iso_boot
   hosts: localhost
   become: yes
   tasks:
@@ -37,7 +40,10 @@
           - '{{ root_path }}'
 
       - name: Extract the xz image
-        command: xz -d '{{ tmp_img }}.xz'
+        shell: |
+          cp {{ tmp_img }}.xz {{ tmp_img }}.xz_backup
+          xz -d '{{ tmp_img }}.xz'
+          mv {{ tmp_img }}.xz_backup {{ tmp_img }}.xz
         args:
           creates: '{{ tmp_img }}'
 
@@ -95,7 +101,7 @@
               backup: no
 
         - name: Get SSH Pub key
-          command: 'cat {{ ssh_pub_key }}'
+          command: 'cat {{ hostvars["vars"]["ssh_pub_key"] }}'
           register: id_rsa_pub_string
           when: img_type == "dietpi"
 
@@ -107,14 +113,14 @@
             - { regexp: '^AUTO_SETUP_NET_WIFI_ENABLED=.*',      line: 'AUTO_SETUP_NET_WIFI_ENABLED=0' }
             - { regexp: '^AUTO_SETUP_NET_WIFI_COUNTRY_CODE=.*', line: 'AUTO_SETUP_NET_WIFI_COUNTRY_CODE=DE' }
             - { regexp: '^AUTO_SETUP_NET_USESTATIC=.*',         line: 'AUTO_SETUP_NET_USESTATIC=1' }
-            - { regexp: '^AUTO_SETUP_NET_STATIC_IP=.*',         line: 'AUTO_SETUP_NET_STATIC_IP={{ ip_static }}' }
+            - { regexp: '^AUTO_SETUP_NET_STATIC_IP=.*',         line: 'AUTO_SETUP_NET_STATIC_IP={{ hostvars["rpi5"]["ansible_host"] }}' }
             - { regexp: '^AUTO_SETUP_NET_STATIC_MASK=.*',       line: 'AUTO_SETUP_NET_STATIC_MASK=255.255.255.0' }
-            - { regexp: '^AUTO_SETUP_NET_STATIC_GATEWAY=.*',    line: 'AUTO_SETUP_NET_STATIC_GATEWAY={{ ip_gateway }}' }
+            - { regexp: '^AUTO_SETUP_NET_STATIC_GATEWAY=.*',    line: 'AUTO_SETUP_NET_STATIC_GATEWAY={{ hostvars["vars"]["ip_gateway"] }}' }
             - { regexp: '^AUTO_SETUP_NET_STATIC_DNS=.*',        line: 'AUTO_SETUP_NET_STATIC_DNS=9.9.9.9 149.112.112.112' }
-            - { regexp: '^AUTO_SETUP_NET_HOSTNAME=.*',          line: 'AUTO_SETUP_NET_HOSTNAME={{ host_name }}' }
+            - { regexp: '^AUTO_SETUP_NET_HOSTNAME=.*',          line: 'AUTO_SETUP_NET_HOSTNAME={{ hostvars["rpi5"]["host_name"] }}' }
             - { regexp: '^AUTO_SETUP_SSH_SERVER_INDEX=.*',      line: 'AUTO_SETUP_SSH_SERVER_INDEX=-2' } # OpenSSH
             - { regexp: '^AUTO_SETUP_AUTOMATED=.*',             line: 'AUTO_SETUP_AUTOMATED=1' }
-            - { regexp: '^AUTO_SETUP_GLOBAL_PASSWORD=.*',       line: 'AUTO_SETUP_GLOBAL_PASSWORD={{ host_password }}' }
+            - { regexp: '^AUTO_SETUP_GLOBAL_PASSWORD=.*',       line: 'AUTO_SETUP_GLOBAL_PASSWORD={{ hostvars["rpi5"]["host_pass"] }}' }
             - { regexp: '^CONFIG_CHECK_DIETPI_UPDATES=.*',      line: 'CONFIG_CHECK_DIETPI_UPDATES=0' }
             - { regexp: '^CONFIG_CHECK_APT_UPDATES=.*',         line: 'CONFIG_CHECK_APT_UPDATES=0.' }
             - { regexp: '^CONFIG_SERIAL_CONSOLE_ENABLE=.*',     line: 'CONFIG_SERIAL_CONSOLE_ENABLE=0' }
@@ -155,7 +161,7 @@
 
         - name: Set the SSH config
           loop:
-          - { regexp: '^.*Port .*', line: 'Port {{ ssh_port }}' }
+          - { regexp: '^.*Port .*', line: 'Port {{ hostvars["rpi5"]["ansible_port"] }}' }
           - { regexp: '^.*AuthorizedKeysFile .*', line: 'AuthorizedKeysFile  /etc/ssh/authorized_keys' }  ## enforce strict ssh key access
           lineinfile:
             path: '{{ root_path }}/etc/ssh/sshd_config'
@@ -166,7 +172,7 @@
           ##when: img_type != "dietpi"
 
         - name: Install SSH key
-          shell: 'cp {{ ssh_pub_key }} {{ root_path }}/etc/ssh/authorized_keys'
+          shell: 'cp {{ hostvars["vars"]["ssh_pub_key"] }} {{ root_path }}/etc/ssh/authorized_keys'
           ##when: img_type != "dietpi"
 
         - name: Set the Hostname
@@ -192,9 +198,7 @@
       block:
        - name: DD to disk
          shell: 'dd if={{ fix_img }} of={{ install_target }} status=progress bs=1M; sync;'
-         register: dd_comm
-       - debug: msg='{{ dd_comm.stdout }}'
-       - debug: msg='{{ dd_comm.stderr }}'
 
-       - name: Cleanup
-         debug: msg="Finished building and installing image to disk"
+       - name: Remove Image from Localhost
+         shell: |
+            rm '{{ fix_img }}'
