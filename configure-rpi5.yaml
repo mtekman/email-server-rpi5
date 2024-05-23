@@ -1,0 +1,98 @@
+- name: Configure the RPi5 Desktop and Touchpad
+  hosts: rpi5
+  become: yes
+  tasks:
+    - name: 1. Install the Firewall
+      block:
+      - name: Install firewall packages
+        apt:
+          name:
+          - ufw
+          - less  ## just useful to have
+          state: present
+          update_cache: yes
+
+      - name: Set the Rules
+        command: ufw allow from {{ hostvars["vars"]["ip_subnet"] }}{{ hostvars["vars"]["ip_mask_suff"] }}
+
+      - name: Enable UFW service
+        systemd:
+          name: ufw
+          enabled: yes
+          state: started
+
+      - name: Start the UFW rules
+        shell: yes | ufw enable
+
+    - name: 2. Install the Desktop
+      block:
+      - name: Install desktop packages (this can take > 5mins)
+        apt:
+          name:
+          - phosh
+          - phosh-core
+          - iio-sensor-proxy
+          - squeekboard
+          - phosh-mobile-tweaks
+          - phosh-plugins
+          - lightdm
+          - lxde    ## to get the X packages?
+          # - gnome-settings-daemon
+          - gnome-session-common
+          - gnome-session-bin
+          # - feedbackd
+          - gconf-gsettings-backend
+          - libglib2.0-bin
+          - wlr-randr
+          - libinput-bin
+          - libinput-tools
+          state: present
+          update_cache: yes
+
+      - name: Unmask systemd-logind service
+        command: systemctl unmask systemd-logind
+        register: unmask_result
+        changed_when: "'Unmasked' in unmask_result.stdout or 'already unmasked' in unmask_result.stderr"
+
+      - name: Start/Enable the systemd-logind service
+        systemd:
+          name: systemd-logind
+          enabled: yes
+          daemon_reload: yes
+          state: started
+
+      - name: Configure phosh
+        copy:
+          dest: /usr/share/phosh/phoc.ini
+          content: |
+            [core]
+            xwayland=false
+
+            [output:HDMI-A-1]
+            mode = 1280x800
+            rotate = 90
+            scale = 1.5
+
+      - name: Configure Touchpad
+        block:
+        - name: Get HID identifier
+          shell: libinput list-devices | grep HID | awk '{print $3}' | sed 's|:|_|g'
+          register: hid_device
+
+        - name: Apply the Coordinate Transform
+          copy:
+            dest: /etc/udev/rules.d/99-touchscreen-calibration.rules
+            content: |
+              ENV{ID_USB_SERIAL}=="{{ hid_device.stdout }}", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"
+
+        - name: Reload the rules
+          shell: |
+            udevadm control --reload-rules
+            udevadm trigger
+            ##  sudo udevadm info /dev/input/event0
+       
+      - name: Start and Enable phosh
+        systemd:
+          name: phosh
+          enabled: yes
+          state: started
