@@ -1,14 +1,20 @@
 - name: Generate the configured Raspberry Pi
   vars:
     img_type: "dietpi"
-    install_target : '{{ install_target }}'  ## user needs to add --extra-vars="install_target=/dev/blah"
     tmp_img : /tmp/rpi5.img
     fix_img : /tmp/rpi5_modified.img
+    install_target: "/dev/null"
     root_path: /mnt/other/mounted_iso_root
     boot_path: /mnt/other/mounted_iso_boot
   hosts: localhost
   become: yes
   tasks:
+    - name: Assert that the user has a disk inserted
+      assert:
+        that: install_target != "/dev/null"
+        fail_msg: 'The "install_target" variable is missing. Please run with --extra-vars="install_target=/dev/blah"'
+        success_msg: "The 'install_target' is set to: {{ install_target }}"
+
     - name: Download and mount the Dietpi image
       vars:
         base_img : "https://dietpi.com/downloads/images/testing/DietPi_RPi5-ARMv8-Bookworm.img.xz"
@@ -163,6 +169,7 @@
           loop:
           - { regexp: '^.*Port .*', line: 'Port {{ hostvars["rpi5"]["ansible_port"] }}' }
           - { regexp: '^.*AuthorizedKeysFile .*', line: 'AuthorizedKeysFile  /etc/ssh/authorized_keys' }  ## enforce strict ssh key access
+          - { regexp: "^.*Subsystem sftp.*", line: 'Subsystem sftp /usr/lib/openssh/sftp-server' } 
           lineinfile:
             path: '{{ root_path }}/etc/ssh/sshd_config'
             regexp: "{{ item.regexp }}"
@@ -198,7 +205,14 @@
       block:
        - name: DD to disk
          shell: 'dd if={{ fix_img }} of={{ install_target }} status=progress bs=1M; sync;'
+       # - name: Remove Image from Localhost
+       #   shell: |
+       #      rm '{{ fix_img }}'
 
-       - name: Remove Image from Localhost
-         shell: |
-            rm '{{ fix_img }}'
+    - name: Remove Rpi5 from known ssh list
+      shell: |
+        sed -i "/^[*{{ hostvars["rpi5"]["ansible_host"] }}]*.*/d;" $(dirname {{ ssh_pub_key }})/known_hosts
+
+    - name: Tell user to Eject Disk
+      debug:
+        msg: "Eject the SD card and put it into the Raspberry Pi 5, and then put the power cable in."
