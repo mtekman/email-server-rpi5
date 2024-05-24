@@ -1,0 +1,129 @@
+- name: Setup the Email Server
+  vars:
+    email_dir: /home/dietpi/LABEMAIL
+    wake_string: H4sIAAAAAAAAA0sXd0pjAIL37RwgioGZwZJhPZBOxxA3ZfBlxiZuxjCdHVOckcGLkRGrOQw4zGHEag4LAyuYRheHAZj4gW0I9S+YMcXR1V+4i1B/gR1THF39PRZOuPod3Jji6Or3G3PCw/M/EKCLg8IHm3qQ+Qv4McXRzU96ygU3fwNWcVOGfGZs4mYMruyY4ujxhVDPgMMcRqzmgNzfIYwpju5+DQluuPoCcUxxdPUm9gj1EdKY4ujq45IQ6h3kMcUx3DOVGx6eyPEFE0ePL5g4yHwNZUxxGAAAazEJCGADAAA= | base64 -d |  gzip -d
+  hosts: rpi5
+  become: yes
+  tasks:
+    - name: Wake the screen
+      command: echo {{ wake_string }}  > /dev/input/event0
+
+    - name: Install lieer, notmuch, and needed wayland typing libraries
+      apt:
+        name:
+        - lieer
+        - notmuch
+        - chromium
+        - firefox-esr
+        - wtype
+        - xdotool
+        - ydotool
+        - jq
+        state: present
+        update_cache: yes
+
+    - name: Make notmuch config
+      become_user: dietpi
+      copy:
+        dest: ~/.notmuch-config
+        content: |
+          [database]
+          path={{ email_dir }}
+
+          [user]
+          name={{ email_name }}
+          primary_email={{ email_address }}
+
+          [new]
+          tags=new
+          ignore=.uidvalidity;.mbsyncstate
+
+          [search]
+          exclude_tags=del;spam;
+
+          [maildir]
+          synchronize_flags=true
+
+    - name: Wipe and make the email dir
+      become_user: dietpi
+      shell: |
+        rm -rf {{ email_dir }};
+        mkdir -p {{ email_dir }}/gmail;
+
+    - name: Initialize notmuch
+      become_user: dietpi
+      command:
+        chdir: '{{ email_dir }}'
+        cmd: notmuch new
+
+    - name: Wake the screen
+      command: echo {{ wake_string }}  > /dev/input/event0
+
+    - name: Kill any other apps
+      shell: 'killall chromium; killall firefox-esr; killall gmi; sleep 1;'
+      with_sequence: start=1 end=3
+      ignore_errors: True
+
+    - name: Get Google to Consent
+      become_user: dietpi
+      environment:
+        DISPLAY: :0
+        XDG_RUNTIME_DIR: /run/user/1000
+        ##BROWSER: /usr/bin/chromium
+        BROWSER: /usr/bin/firefox-esr
+      block:
+      - name: Remove Gmail junk
+        command:
+          chdir: '{{ email_dir }}'
+          cmd: rm -rf .gmailieer.json mail
+
+      - name: Remove Browser junk
+        command:
+          cmd: rm -rf ~/.cache/mozilla ~/.cache/chromium ~/.mozilla ~/.config/chromium
+
+      - name: Initialize lieer
+        async: 300     # Allow the task to run for up to 5 minutes
+        poll: 0         # Don't wait for the task to finish
+        shell:
+          chdir: '{{ email_dir }}'
+          cmd: gmi init {{ email_address }}
+
+      - name: Wait for browser to be ready
+        command: sleep 10
+
+      - name: Type in username credentials
+        shell:
+          cmd: wtype "{{ email_address }}" -P Return
+
+      - name: Wait for browser to be ready
+        command: sleep 5
+
+      - name: Type in password
+        shell:
+          cmd: wtype "{{ email_pass }}" -P Return
+
+      - name: Wait for browser to be ready
+        command: sleep 5
+
+      - name: Scroll down and Agree
+        shell:
+          cmd: |
+            sleep 1; wtype -P Escape
+            sleep 1; wtype -P End
+            sleep 1; wtype -P Escape
+            sleep 2; wtype -M ctrl g -m ctrl
+            sleep 1; wtype Zulassen
+            sleep 1; wtype -P Escape
+            sleep 1; wtype -P Tab
+            sleep 1; wtype -M shift -P Tab -m shift
+            sleep 1; wtype -P Return
+            sleep 15; wtype -M ctrl w -m ctrl
+            sleep 1; wtype -M ctrl w -m ctrl
+
+      - name: Wait for browser to do something, then kill it and gmi
+        shell: 'sleep 15; killall chromium; killall firefox-esr; killall gmi; sleep 2'
+
+      - name: Pull emails
+        command:
+          chdir: '{{ email_dir }}'
+          cmd: gmi pull
