@@ -1,0 +1,37 @@
+- name: Unlock the Phosh Device 
+  hosts: rpi5
+  vars:
+    evconvert: "base64 -d | gzip -d"
+    wake_file: /home/{{ ansible_user }}/.gestures/wake.event
+    swipe_file: /home/{{ ansible_user }}/.gestures/swipe_up.event
+    ##    swipe_string: 
+  become: yes
+  tasks:
+    - name: Create gestures store
+      command: 'mkdir -p /home/{{ ansible_user }}/.gestures/'
+      
+    - name: Install gesture files
+      block:
+      - name: install wake event
+        copy:
+          src: phosh_gestures/wake.event
+          dest: '{{ wake_file }}'
+          
+      - name: install swipe up event
+        copy:
+          src: phosh_gestures/swipe_up.event
+          dest: '{{ swipe_file }}'
+          
+    
+    - name: Wake the screen
+      shell: 'cat {{ wake_file }} | {{ evconvert }}  > /dev/input/event0'
+
+    - name: Swipe up
+      shell: 'cat {{ swipe_file }} | {{ evconvert }}  > /dev/input/event0'
+      
+    - name: Type device password
+      environment:
+        DISPLAY: :0
+        XDG_RUNTIME_DIR: /run/user/1000
+      shell:
+        cmd: wtype -d 100 "{{ host_pass }}" -P Return
