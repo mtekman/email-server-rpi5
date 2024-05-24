@@ -20,4 +20,4 @@
   import_playbook: playbooks/configure-rpi5.yaml
 
 - name: Install Email Server
-  import_playbook: playbooks/setup-email.yaml
+  import_playbook: playbooks/email-server.yaml

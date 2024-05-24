@@ -66,7 +66,9 @@
           dest: /usr/share/phosh/phoc.ini
           content: |
             [core]
-            xwayland=false
+            xwayland=true
+            ## fixes "oh no please log out issue"
+            ## also required for us to launch apps
 
             [output:HDMI-A-1]
             mode = 1280x800
