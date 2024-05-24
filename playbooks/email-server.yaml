@@ -1,8 +1,8 @@
 - name: Setup the Email Server
-  vars:
-    email_dir: /home/dietpi/LABEMAIL
-    wake_string: H4sIAAAAAAAAA0sXd0pjAIL37RwgioGZwZJhPZBOxxA3ZfBlxiZuxjCdHVOckcGLkRGrOQw4zGHEag4LAyuYRheHAZj4gW0I9S+YMcXR1V+4i1B/gR1THF39PRZOuPod3Jji6Or3G3PCw/M/EKCLg8IHm3qQ+Qv4McXRzU96ygU3fwNWcVOGfGZs4mYMruyY4ujxhVDPgMMcRqzmgNzfIYwpju5+DQluuPoCcUxxdPUm9gj1EdKY4ujq45IQ6h3kMcUx3DOVGx6eyPEFE0ePL5g4yHwNZUxxGAAAazEJCGADAAA= | base64 -d |  gzip -d
   hosts: rpi5
+  vars:
+    email_dir: '/home/{{ hostvars["rpi5"]["ansible_user"] }}/{{ hostvars["rpi5"]["email_folder"] }}'
+    wake_string: H4sIAAAAAAAAA0sXd0pjAIL37RwgioGZwZJhPZBOxxA3ZfBlxiZuxjCdHVOckcGLkRGrOQw4zGHEag4LAyuYRheHAZj4gW0I9S+YMcXR1V+4i1B/gR1THF39PRZOuPod3Jji6Or3G3PCw/M/EKCLg8IHm3qQ+Qv4McXRzU96ygU3fwNWcVOGfGZs4mYMruyY4ujxhVDPgMMcRqzmgNzfIYwpju5+DQluuPoCcUxxdPUm9gj1EdKY4ujq45IQ6h3kMcUx3DOVGx6eyPEFE0ePL5g4yHwNZUxxGAAAazEJCGADAAA= | base64 -d |  gzip -d
   become: yes
   tasks:
     - name: Wake the screen
@@ -31,8 +31,8 @@
           path={{ email_dir }}
 
           [user]
-          name={{ email_name }}
-          primary_email={{ email_address }}
+          name={{ hostvars["rpi5"]["host_name"] }}
+          primary_email={{ hostvars["rpi5"]["email_address"] }}
 
           [new]
           tags=new
@@ -86,21 +86,21 @@
         poll: 0         # Don't wait for the task to finish
         shell:
           chdir: '{{ email_dir }}'
-          cmd: gmi init {{ email_address }}
+          cmd: gmi init {{ hostvars["rpi5"]["email_address"] }}
 
       - name: Wait for browser to be ready
         command: sleep 10
 
       - name: Type in username credentials
         shell:
-          cmd: wtype "{{ email_address }}" -P Return
+          cmd: wtype "{{ hostvars["rpi5"]["email_address"] }}" -P Return
 
       - name: Wait for browser to be ready
         command: sleep 5
 
       - name: Type in password
         shell:
-          cmd: wtype "{{ email_pass }}" -P Return
+          cmd: wtype "{{ hostvars["rpi5"]["email_pass"] }}" -P Return
 
       - name: Wait for browser to be ready
         command: sleep 5
