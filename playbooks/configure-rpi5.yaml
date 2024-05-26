@@ -46,6 +46,13 @@
           - wlr-randr
           - libinput-bin
           - libinput-tools
+          ## Wayland typing utils
+          - wtype
+          - xdotool
+          - ydotool
+          - jq
+          ## messaging
+          - libnotify-bin 
           state: present
           update_cache: yes
 

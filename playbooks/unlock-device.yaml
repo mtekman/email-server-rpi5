@@ -1,37 +1,95 @@
-- name: Unlock the Phosh Device 
+- name: Unlock the Phosh Device
   hosts: rpi5
   vars:
     evconvert: "base64 -d | gzip -d"
-    wake_file: /home/{{ ansible_user }}/.gestures/wake.event
-    swipe_file: /home/{{ ansible_user }}/.gestures/swipe_up.event
-    ##    swipe_string: 
+    wake_file: /home/{{ ansible_user }}/.phoshtasks/wake.event
+    swipeup_file: /home/{{ ansible_user }}/.phoshtasks/swipe_up.event
+    swipedn_file: /home/{{ ansible_user }}/.phoshtasks/swipe_dn.event
+    phoshtask_file: /etc/bashrc.d/phoshtasks.sh
   become: yes
   tasks:
-    - name: Create gestures store
-      command: 'mkdir -p /home/{{ ansible_user }}/.gestures/'
-      
-    - name: Install gesture files
+    - name: Create phoshtasks store
+      command: 'mkdir -p /home/{{ ansible_user }}/.phoshtasks/'
+
+    - name: Install phoshtask files
       block:
       - name: install wake event
         copy:
           src: phosh_gestures/wake.event
           dest: '{{ wake_file }}'
-          
+
       - name: install swipe up event
         copy:
           src: phosh_gestures/swipe_up.event
-          dest: '{{ swipe_file }}'
-          
-    
-    - name: Wake the screen
-      shell: 'cat {{ wake_file }} | {{ evconvert }}  > /dev/input/event0'
+          dest: '{{ swipeup_file }}'
 
-    - name: Swipe up
-      shell: 'cat {{ swipe_file }} | {{ evconvert }}  > /dev/input/event0'
-      
-    - name: Type device password
-      environment:
-        DISPLAY: :0
-        XDG_RUNTIME_DIR: /run/user/1000
+      - name: install swipe dn event
+        copy:
+          src: phosh_gestures/swipe_dn.event
+          dest: '{{ swipedn_file }}'
+
+      - name: Install the global script
+        copy:
+          dest: '{{ phoshtask_file }}'
+          content: |
+          
+            function phoshhelp {
+               echo "usage: phoshtask <wake|swipe <up|down>|lock|unlock|show <notification|desktop|apps>>"
+            }
+
+            function phoshtask {
+               event_dev=$(sudo libinput list-devices | grep -A 5  "HID 03eb:214e" | grep Kernel | awk '{print $2}')
+               echo "Using device: $event_dev"
+
+               export DISPLAY=:0
+               export XDG_RUNTIME_DIR=/run/user/1000
+               
+               case $1 in
+                  wake)
+                    sudo sh -c "cat {{ wake_file }} | {{ evconvert }}  > ${event_dev}"
+                    ;;
+                  swipe)
+                    case $2 in
+                      up) sudo sh -c "cat {{ swipeup_file }} | {{ evconvert }}  > ${event_dev}" ;;
+                      down) sudo sh -c "cat {{ swipedn_file }} | {{ evconvert }}  > ${event_dev}" ;;
+                      *) phoshhelp
+                    esac
+                    ;;
+                  lock)
+                    wtype -M logo l -m logo;;
+                  unlock)
+                    ## wtype actually wakes the device by itself, and typing automatically focuses the input field
+                    ##phoshtask wake; sleep 0.5;
+                    ##phoshtask swipe up; sleep 0.5;
+                    wtype -d 100 "{{ host_pass }}" -P Return
+                    ;;
+                  show)
+                    ## Keybindings to switch between different contexts
+                    case $2 in
+                      notification) wtype -M logo v -m logo;;
+                      desktop) wtype -M logo a -m logo;;
+                      apps) wtype -M logo s -m logo;;
+                      *) phoshhelp
+                    esac
+                    ;;
+                  *) phoshhelp
+                  ;;
+               esac
+            }
+
+    # - name: Wake the screen
+    #   shell: 'cat {{ wake_file }} | {{ evconvert }}  > /dev/input/event0'
+
+    # - name: Swipe up
+    #   shell: 'cat {{ swipeup_file }} | {{ evconvert }}  > /dev/input/event0'
+
+    # - name: Type device password
+    #   environment:
+    #     DISPLAY: :0
+    #     XDG_RUNTIME_DIR: /run/user/1000
+    #   shell: 'wtype -d 100 {{ host_pass }} -P Return'
+
+    - name: Unlock the device
       shell:
-        cmd: wtype -d 100 "{{ host_pass }}" -P Return
+        executable: /bin/bash
+        cmd: 'source {{ phoshtask_file }}; phoshtask unlock'

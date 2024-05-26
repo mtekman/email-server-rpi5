@@ -209,9 +209,9 @@
        #   shell: |
        #      rm '{{ fix_img }}'
 
-    - name: Remove Rpi5 from known ssh list
+    - name: Remove RPi5 from known SSH list
       shell: |
-        sed -i "/^[*{{ hostvars["rpi5"]["ansible_host"] }}]*.*/d;" $(dirname {{ ssh_pub_key }})/known_hosts
+        sed -i "/^[*{{ hostvars["rpi5"]["ansible_host"] }}]*.*/d;" $(dirname {{ hostvars["vars"]["ssh_pub_key"] }})/known_hosts
 
     - name: Tell user to Eject Disk
       debug:

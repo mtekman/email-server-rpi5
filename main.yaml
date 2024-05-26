@@ -1,9 +1,9 @@
-- hosts: localhost
-  tasks:
-    - name: Generate the RPi5 Image
-      import_playbook: playbooks/generate-img.yaml
+# ansible-playbook -i inventory.yaml main.yaml --ask-become-pass --extra-vars="install_target=/dev/sdd"
+- name: Generate the RPi5 Image and install to SD card
+  import_playbook: playbooks/generate-img.yaml
 
-- hosts: rpi5
+- name: Tranfer SD card to RPi5 and wait for setup to finish
+  hosts: rpi5
   gather_facts: no            ## it's not up yet, don't pull metrics
   tasks:
     - name: Wait for DietPi SSH access
@@ -18,11 +18,11 @@
         path: /boot/dietpi/.install_stage
         search_regex: 2                    ## indicates installation complete
 
-    - name: Configure Firewall, Desktop, and Touchpad
-      import_playbook: playbooks/configure-rpi5.yaml
+- name: Configure Firewall, Desktop, and Touchpad
+  import_playbook: playbooks/configure-rpi5.yaml
 
-    - name: Unlock the device
-      import_playbook: playbooks/unlock-device.yaml
+- name: Unlock the device
+  import_playbook: playbooks/unlock-device.yaml
 
-    - name: Install Email Server
-      import_playbook: playbooks/email-server.yaml
+- name: Install Email Server
+  import_playbook: playbooks/email-server.yaml

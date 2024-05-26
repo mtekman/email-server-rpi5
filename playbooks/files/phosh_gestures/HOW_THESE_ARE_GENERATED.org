@@ -1,0 +1,57 @@
+
+* Generating Event Strings
+
+1. Find the input device that produces weird output whenever you do something like tap the screen, type, or move the mouse.
+
+2. Usually these are the devices in /dev/input/event012345
+
+
+** Finding the input device
+
+Let's say we want to test that that touch screen events are event0:
+
+   I would run:
+   
+   #+begin_src bash
+     sudo cat /dev/input/event0
+   #+end_src
+
+   Then I would tap the screen and see if anything is output in the console. If not, I try another device.
+
+** Recording events
+
+If I want to record a swipe up gesture on that device, then I would do:
+
+  #+begin_src bash
+    sudo cat /dev/input/event0 > myswipe_up_data.file
+  #+end_src
+
+and then I would a swipe up on the device, and then finally kill the script with a =Ctrl-C=.
+
+
+** Playing back events
+
+If I want to play back that swipe gesture to the device:
+
+  #+begin_src bash
+    sudo sh -c 'cat myswipe_up_data.file > /dev/input/event0
+  #+end_src
+
+
+** Saving the event data in legible form
+
+If you look at the contents of =myswipe_up_data.file= you will see
+that it's mostly unrepresentable strings. To translate this to
+something a bit more legible, we compress the binary data and then encode the compression to base64.
+
+  #+begin_src bash
+     cat myswipe_up_data.file | gzip -f | base64 > myswipe_up_data.gesture
+  #+end_src
+
+
+  We can then play this back to the device by reversing the compression and encoding:
+
+  #+begin_src 
+     sudo sh -c 'cat myswipe_up_data.gesture | base64 -d | gzip -d > /dev/input/event0'
+  #+end_src
+  

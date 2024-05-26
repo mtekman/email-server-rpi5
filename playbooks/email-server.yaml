@@ -8,7 +8,7 @@
     - name: Wake the screen
       command: echo {{ wake_string }}  > /dev/input/event0
 
-    - name: Install lieer, notmuch, and needed wayland typing libraries
+    - name: Install lieer, notmuch, and wayland dotool
       apt:
         name:
         - lieer
@@ -16,9 +16,6 @@
         - chromium
         - firefox-esr
         - wtype
-        - xdotool
-        - ydotool
-        - jq
         state: present
         update_cache: yes
 
