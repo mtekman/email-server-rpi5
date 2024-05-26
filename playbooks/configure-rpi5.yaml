@@ -52,7 +52,8 @@
           - ydotool
           - jq
           ## messaging
-          - libnotify-bin 
+          - libnotify-bin
+          - qdbus  ## get lockscreen states
           state: present
           update_cache: yes
 

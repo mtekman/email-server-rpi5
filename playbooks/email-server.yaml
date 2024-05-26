@@ -3,6 +3,7 @@
   vars:
     email_dir: '/home/{{ ansible_user }}/{{ email_folder }}'
     wake_string: H4sIAAAAAAAAA0sXd0pjAIL37RwgioGZwZJhPZBOxxA3ZfBlxiZuxjCdHVOckcGLkRGrOQw4zGHEag4LAyuYRheHAZj4gW0I9S+YMcXR1V+4i1B/gR1THF39PRZOuPod3Jji6Or3G3PCw/M/EKCLg8IHm3qQ+Qv4McXRzU96ygU3fwNWcVOGfGZs4mYMruyY4ujxhVDPgMMcRqzmgNzfIYwpju5+DQluuPoCcUxxdPUm9gj1EdKY4ujq45IQ6h3kMcUx3DOVGx6eyPEFE0ePL5g4yHwNZUxxGAAAazEJCGADAAA= | base64 -d |  gzip -d
+    phoshtask_file: /etc/bashrc.d/phoshtasks.sh
   become: yes
   tasks:
     - name: Wake the screen
@@ -120,7 +121,13 @@
       - name: Wait for browser to do something, then kill it and gmi
         shell: 'sleep 15; killall chromium; killall firefox-esr; killall gmi; sleep 2'
 
+      - name: Notify user of background task
+        shell: 'source {{ phoshtask_file }}; phoshtask show notification; notify-send -a "Email Server" "Pulling emails"'
+          
       - name: Pull emails
         command:
           chdir: '{{ email_dir }}'
           cmd: gmi pull
+
+      - name: Notify user of background task
+        shell: 'source {{ phoshtask_file }}; notify-send -a "Email Server" "Finished"'

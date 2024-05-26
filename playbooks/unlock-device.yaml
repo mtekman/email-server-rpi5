@@ -39,7 +39,7 @@
 
             function phoshtask {
                event_dev=$(sudo libinput list-devices | grep -A 5  "HID 03eb:214e" | grep Kernel | awk '{print $2}')
-               echo "Using device: $event_dev"
+               echo "Using device: $event_dev" >&2
 
                export DISPLAY=:0
                export XDG_RUNTIME_DIR=/run/user/1000
@@ -52,16 +52,25 @@
                     case $2 in
                       up) sudo sh -c "cat {{ swipeup_file }} | {{ evconvert }}  > ${event_dev}" ;;
                       down) sudo sh -c "cat {{ swipedn_file }} | {{ evconvert }}  > ${event_dev}" ;;
-                      *) phoshhelp
+                      *) phoshhelp;;
                     esac
                     ;;
                   lock)
-                    wtype -M logo l -m logo;;
+                    if [ $(phoshtask is locked) = false ]; then
+                       wtype -M logo l -m logo
+                    else
+                       echo "screen is already locked, doing nothing" >&2
+                    fi
+                    ;;
                   unlock)
                     ## wtype actually wakes the device by itself, and typing automatically focuses the input field
                     ##phoshtask wake; sleep 0.5;
                     ##phoshtask swipe up; sleep 0.5;
-                    wtype -d 100 "{{ host_pass }}" -P Return
+                    if [ $(phoshtask is locked) = true ]; then
+                       wtype -d 100 "{{ host_pass }}" -P Return
+                    else
+                       echo "screen isn't locked, doing nothing" >&2
+                    fi
                     ;;
                   show)
                     ## Keybindings to switch between different contexts
@@ -69,11 +78,17 @@
                       notification) wtype -M logo v -m logo;;
                       desktop) wtype -M logo a -m logo;;
                       apps) wtype -M logo s -m logo;;
-                      *) phoshhelp
+                      *) phoshhelp;;
                     esac
                     ;;
-                  *) phoshhelp
-                  ;;
+                  is)
+                    case $2 in
+                      locked) qdbus org.gnome.ScreenSaver /org/gnome/ScreenSaver org.gnome.ScreenSaver.GetActive;;
+                      appscreen) qdbus sm.puri.OSK0 /sm/puri/OSK0 sm.puri.OSK0.Visible;;   ## false is desktop
+                      *) phoshhelp;;
+                    esac
+                    ;;
+                  *) phoshhelp;;
                esac
             }
 
@@ -90,6 +105,7 @@
     #   shell: 'wtype -d 100 {{ host_pass }} -P Return'
 
     - name: Unlock the device
+      become_user: dietpi
       shell:
         executable: /bin/bash
         cmd: 'source {{ phoshtask_file }}; phoshtask unlock'
