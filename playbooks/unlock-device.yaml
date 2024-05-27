@@ -28,22 +28,36 @@
           src: phosh_gestures/swipe_dn.event
           dest: '{{ swipedn_file }}'
 
+      - name: Get HID identifier  ## this is a dupe task
+        shell: libinput list-devices | grep HID | awk '{print $3}'
+        register: hid_device
+
       - name: Install the global script
         copy:
           dest: '{{ phoshtask_file }}'
           content: |
-          
+
             function phoshhelp {
                echo "usage: phoshtask <wake|swipe <up|down>|lock|unlock|show <notification|desktop|apps>>"
             }
 
+            function getinputdevice {
+               ## Update the location of the input device and print a message when it changes
+               event_dev=$(sudo libinput list-devices | grep -A 5  "HID {{ hid_device.stdout }}" | grep Kernel | awk '{print $2}')
+               last_dev=$(touch ~/.input_dev; cat ~/.input_dev)
+               if [ "$last_dev" != "$event_dev" ]; then
+                  echo "Using device: $event_dev" >&2
+                  echo -n $event_dev > ~/.input_dev
+               fi
+               echo "$event_dev"
+            }
+
             function phoshtask {
-               event_dev=$(sudo libinput list-devices | grep -A 5  "HID 03eb:214e" | grep Kernel | awk '{print $2}')
-               echo "Using device: $event_dev" >&2
+               local event_dev=$(getinputdevice)
 
                export DISPLAY=:0
                export XDG_RUNTIME_DIR=/run/user/1000
-               
+
                case $1 in
                   wake)
                     sudo sh -c "cat {{ wake_file }} | {{ evconvert }}  > ${event_dev}"
@@ -75,9 +89,10 @@
                   show)
                     ## Keybindings to switch between different contexts
                     case $2 in
-                      notification) wtype -M logo v -m logo;;
-                      desktop) wtype -M logo a -m logo;;
-                      apps) wtype -M logo s -m logo;;
+                      notification) wtype -d 500 -k Escape -M logo v -m logo;;
+                      desktop) wtype -d 500 -k Escape -k Escape;;
+                      apps) wtype -d 500 -k Escape -M logo s -m logo
+                        ;;
                       *) phoshhelp;;
                     esac
                     ;;

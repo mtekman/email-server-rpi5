@@ -10,6 +10,7 @@
         name:
         - linux-headers-rpi-2712
         - make
+        - xz-utils
         state: present
         update_cache: yes
 
