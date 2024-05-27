@@ -1,0 +1,62 @@
+- name: Build and install the battery module
+  hosts: rpi5
+  vars:
+    build_dir: /tmp/battery_build
+  become: yes
+  tasks:
+    - name: Get the kernel headers
+      ## to populate the /lib/modules/<kernel>/build directory
+      apt:
+        name:
+        - linux-headers-rpi-2712
+        - make
+        state: present
+        update_cache: yes
+
+    - name: Copy the build files over
+      block:
+      - name: Make the build directory
+        command: mkdir -p {{ build_dir }}
+
+      - name: Copy the battery source files over
+        copy:
+          src: fake_battery/
+          dest: '{{ build_dir }}'
+
+    - name: Build the module
+      command:
+        chdir: '{{ build_dir }}'
+        cmd: make
+      
+    - name: Compress the module
+      command:
+        chdir: '{{ build_dir }}'
+        cmd: xz fake_battery.ko
+
+    - name: Copy the module to kernel modules
+      shell:
+        chdir: '{{ build_dir }}'
+        cmd: |
+          cp -v fake_battery.ko.xz /lib/modules/$(uname -r)/kernel/drivers/power/supply/
+
+    - name: Make the module persistent at boot
+      shell: echo "fake_battery" >> /etc/modules-load.d/modules.conf
+
+    - name: Update modules
+      command: sudo depmod -a
+
+    - name: Load the battery module
+      command:
+        cmd: modprobe fake_battery
+        creates: /dev/fake_battery
+
+    - name: Set the state of the battery
+      command: |
+        echo 'charging=1' > /dev/fake_battery"
+        echo 'capacity=85' > /dev/fake_battery"
+
+    - name: Cleanup battery source files
+      command: 'rm -rf {{ build_dir }}'
+
+        
+
