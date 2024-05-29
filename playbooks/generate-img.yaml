@@ -4,10 +4,10 @@
     tmp_img : /tmp/rpi5.img
     fix_img : /tmp/rpi5_modified.img
     install_target: "/dev/null"
-    root_path: /mnt/other/mounted_iso_root
-    boot_path: /mnt/other/mounted_iso_boot
+    root_path: /tmp/mnt/mounted_iso_root
+    boot_path: /tmp/mnt/mounted_iso_boot
   hosts: localhost
-  become: yes
+  become: false
   tasks:
     - name: Assert that the user has a disk inserted
       assert:
@@ -23,6 +23,7 @@
         ##base_md5 : "sha256:58a3ec57402c86332e67789a6b8f149aeeb4e7bb0a16c9388a66ea6e07012e45"
       block:
       - name: Ensure necessary packages are installed
+        become: true
         pacman:
           name:
             - qemu-full
@@ -63,6 +64,7 @@
           environment:
             LIBGUESTFS_DEBUG: 1
             LIBGUESTFS_TRACE: 1
+          become: true
           shell: |
             guestmount --format=raw -o allow_other -a '{{ tmp_img }}' -m '{{ boot_part }}' '{{ boot_path }}' 2>> /tmp/errors.txt
           args:
@@ -141,11 +143,13 @@
           when: img_type == "dietpi"
 
         - name: Unmount the boot partition
+          become: true
           shell: |
             sync
             umount '{{ boot_path }}'
 
         - name: Mount the iso (root partition)
+          become: true
           environment:
             LIBGUESTFS_DEBUG: 1
             LIBGUESTFS_TRACE: 1
@@ -189,6 +193,7 @@
           when: img_type != "dietpi"
 
         - name: Unmount the root partition
+          become: true
           shell: |
             sync
             umount '{{ root_path }}'
@@ -202,6 +207,7 @@
           command: 'mv {{ tmp_img }} {{ fix_img }}'
 
     - name: Install changed ISO to disk
+      become: true
       block:
        - name: DD to disk
          shell: 'dd if={{ fix_img }} of={{ install_target }} status=progress bs=1M; sync;'
