@@ -1,0 +1,52 @@
+- name: Copy over the novogene pipeline
+  hosts: rpi5
+  become: yes
+  tasks:
+  - name: Copy over the novogene pipeline
+    command: echo TODO
+    ## TODO: Implement Makefile as Ansible pipeline
+  - name: Install the helper script (with backup script)
+    copy:
+      dest: /etc/bashrc.d/emailserver.sh
+      content: |
+       function novogene_batches {
+           ## Parse All Emails and get All Batches and Passwords
+           notmuch show --format=json --include-html subject:"Data release" and body:"Password" \
+           | jq '.[][][0] as $one | $one.body[0].content[0].content as $two
+           | "Date=" + ($one.timestamp | strftime("%Y-%m-%d")) +
+            " Body=" + (if $two | type == "array" then $two[0].content else (" " + $two) end) +
+            " Id=" + $one.id' \
+           | sed -r 's/<[^>]*>//g; s/&nbsp;/ /g; s/\\n/ /g; s/\s{2,}/ /g' | grep "Dear" \
+           | sed -r 's|.*Date=(.*) .*Body=.*please login using BatchID\s+([^ ]*)\s+and\s+Password\s+([^ ]*) .*Id=([^ "]*).*|Date=\1\|BatchID=\2\|Password=\3\|EmailId=\4|' \
+           | sort
+       }
+
+       function get_batch_data {
+           local batch=$1
+           if [ "$1" == "" ]; then
+              echo "get_batch_data <batchnumber>" >&2 && return -1
+           fi
+           result=$(novogene_batches | grep $batch)
+           if [ "$result" = "" ]; then
+              echo "Nothing found." >&2 && return -1
+           elif [[ $(echo "$result" | wc -l) -gt 1 ]]; then
+              echo "Multiple matches found." >&2
+              echo "$result" >&2
+              return -1
+           else
+             echo "$result"
+           fi
+       }
+
+  - name: Mount the network drive
+    block:
+    - name: Mount the novogene archive drive
+      command: echo TODO
+    - name: Mount to internal Arnold lab drive with spreadsheet data.
+      command: echo TODO
+  - name: Start the background daemons
+    block:
+    - name: Scan emails
+      command: echo TODO
+
+## TODO: Work out how to log stuff into a spreadsheet, and back it up to the arnold drive.
