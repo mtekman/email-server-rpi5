@@ -106,24 +106,24 @@
       - name: Scroll down and Agree
         shell:
           cmd: |
-            sleep 1; wtype -P Escape
-            sleep 1; wtype -P End
-            sleep 1; wtype -P Escape
-            sleep 2; wtype -M ctrl g -m ctrl
-            sleep 1; wtype Zulassen
-            sleep 1; wtype -P Escape
-            sleep 1; wtype -P Tab
-            sleep 1; wtype -M shift -P Tab -m shift
-            sleep 1; wtype -P Return
+            sleep 1;  wtype -P Escape
+            sleep 1;  wtype -P End
+            sleep 1;  wtype -P Escape
+            sleep 2;  wtype -M ctrl g -m ctrl
+            sleep 1;  wtype Zulassen
+            sleep 1;  wtype -P Escape
+            sleep 1;  wtype -P Tab
+            sleep 1;  wtype -M shift -P Tab -m shift
+            sleep 1;  wtype -P Return
             sleep 15; wtype -M ctrl w -m ctrl
-            sleep 1; wtype -M ctrl w -m ctrl
+            sleep 1;  wtype -M ctrl w -m ctrl
 
       - name: Wait for browser to do something, then kill it and gmi
         shell: 'sleep 15; killall chromium; killall firefox-esr; killall gmi; sleep 2'
 
       - name: Notify user of background task
         shell: 'source {{ phoshtask_file }}; phoshtask show notification; notify-send -a "Email Server" "Pulling emails"'
-          
+
       - name: Pull emails
         command:
           chdir: '{{ email_dir }}'
