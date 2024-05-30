@@ -1,6 +1,6 @@
 # Raspberry Pi5 Email Server
 
-  ![device](./img.jpg)
+  ![device](https://gitlab.com/mtekman/email-server-rpi5/-/raw/main/img.jpeg)
 
 This is a a raspberry pi5 device with a 10" screen, running a Phosh
 desktop, and an email server to scrape emails from Novogene for new
