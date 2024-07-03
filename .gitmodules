@@ -1,0 +1,6 @@
+[submodule "novogene_download_pipeline/novogene-download-pipeline"]
+	path = novogene_download_pipeline/novogene-download-pipeline
+	url = git@github.com:mtekman/novogene-download-pipeline
+[submodule "novogene-download-pipeline"]
+	path = novogene-download-pipeline
+	url = git@github.com:mtekman/novogene-download-pipeline
