@@ -39,6 +39,11 @@
            fi
        }
 
+  - name: Copy over the current samplesheet
+    copy:
+      src: novogene/samplesheet.org
+      dest: /home/dietpi/samplesheet.org
+
   - name: Mount the network drive
     block:
     - name: Mount the novogene archive drive
