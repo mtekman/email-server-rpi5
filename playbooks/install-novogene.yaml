@@ -9,6 +9,7 @@
     copy:
       dest: /etc/bashrc.d/emailserver.sh
       content: |
+      
        function novogene_batches {
            ## Parse All Emails and get All Batches and Passwords
            notmuch show --format=json --include-html subject:"Data release" and body:"Password" \
@@ -50,3 +51,4 @@
       command: echo TODO
 
 ## TODO: Work out how to log stuff into a spreadsheet, and back it up to the arnold drive.
+

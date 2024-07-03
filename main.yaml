@@ -21,7 +21,7 @@
 - name: Configure Firewall, Desktop, and Touchpad
   import_playbook: playbooks/configure-rpi5.yaml
 
-- name: Install the fake battery module
+- name: Install the battery module
   import_playbook: playbooks/install-fakebattery.yaml
 
 - name: Unlock the device

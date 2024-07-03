@@ -18,9 +18,7 @@
     - name: Download and mount the Dietpi image
       vars:
         base_img : "https://dietpi.com/downloads/images/testing/DietPi_RPi5-ARMv8-Bookworm.img.xz"
-        base_md5 : "sha256:0cff3e4888abc289a14b63a02d9ec5f285023d6338ad48998098ee46b50d715c"
-        ##base_img : "https://downloads.raspberrypi.com/raspios_lite_arm64/images/raspios_lite_arm64-2024-03-15/2024-03-15-raspios-bookworm-arm64-lite.img.xz"
-        ##base_md5 : "sha256:58a3ec57402c86332e67789a6b8f149aeeb4e7bb0a16c9388a66ea6e07012e45"
+        base_md5 : "sha256:b15252ea322136fe882ef60ba683f1c1580a64f420279223cf88fb54d1247e58"
       block:
       - name: Ensure necessary packages are installed
         become: true
@@ -223,4 +221,4 @@
 
     - name: Tell user to Eject Disk
       debug:
-        msg: "Eject the SD card and put it into the Raspberry Pi 5, and then put the power cable in."
+        msg: "Eject the SD card and put it into the Raspberry Pi 5, and then put the power cable in. If it goes to a blue screen and fails, then pull the plug on the device, take out the SD card. Reboot your own machine, and re-run the pipeline again."
