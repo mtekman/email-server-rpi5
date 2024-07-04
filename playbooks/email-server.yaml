@@ -131,3 +131,46 @@
 
       - name: Notify user of background task
         shell: 'source {{ phoshtask_file }}; notify-send -a "Email Server" "Finished"'
+
+      - name: Generate and start email background daemons
+        block:
+        - name: Generate systemd GMI service file
+          become_user: root
+          copy:
+            dest: /etc/systemd/system/gmi.service
+            content: |
+              [Unit]
+              Description=Pull new emails from server
+              
+              [Service]
+              User={{ ansible_user }}
+              Type=oneshot
+              WorkingDirectory={{ email_dir }}
+              ExecStart=/usr/bin/gmi pull
+              
+              [Install]
+              WantedBy=default.target
+
+        - name: Generate systemd GMI timer file
+          become_user: root
+          copy:
+            dest: /etc/systemd/system/gmi.timer
+            content: |
+              [Unit]
+              Description=Pull new emails every minute
+              
+              [Timer]
+              OnBootSec=5m
+              OnUnitActiveSec=1m
+              Unit=gmi.service
+              
+              [Install]
+              WantedBy=timers.target
+          
+        - name: Start daemons
+          become_user: root
+          systemd:
+             name: gmi
+             state: started
+             enabled: yes
+
