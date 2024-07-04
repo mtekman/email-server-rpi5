@@ -170,7 +170,7 @@
         - name: Start daemons
           become_user: root
           systemd:
-             name: gmi
+             name: gmi.timer
              state: started
              enabled: yes
 
