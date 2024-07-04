@@ -29,3 +29,6 @@
 
 - name: Install Email Server
   import_playbook: playbooks/email-server.yaml
+
+- name: Install Novogene
+  import_playbook: playbooks/install-novogene.yaml
