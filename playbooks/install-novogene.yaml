@@ -5,7 +5,7 @@
   - name: Copy over the novogene pipeline
     copy:
       src: novogene/novogene-download-pipeline/
-      dest: '{{ hostvars["rpi5"]["novogene_install_folder"] }}/'
+      dest: '{{ hostvars["rpi5"]["novogene_pipeline_dir"] }}/'
 
   - name: Install the helper script (with backup script)
     copy:
@@ -44,46 +44,42 @@
   - name: Copy over the current samplesheet
     copy:
       src: novogene/samplesheet.org
-      dest: '{{ hostvars["rpi5"]["novogene_install_folder"] }}/samplesheet.org'
+      dest: '{{ hostvars["rpi5"]["novogene_pipeline_dir"] }}/samplesheet.org'
 
   - name: Install Emacs
     apt:
       name: emacs
 
-  - name: Create labdata mount
-    file:
-      path: '{{ hostvars["rpi5"]["labdata_folder"] }}'
-      state: directory
-
-  - name: Mount the network labdata
+  - name: Mount the network labdata (ro)
     become_user: root
     mount:
       src: '//{{ hostvars["labdata"]["ansible_host"] }}{{ hostvars["labdata"]["labmount"] }}'
       path: '{{ hostvars["rpi5"]["labdata_folder"] }}'
       fstype: cifs
       state: mounted
-      opts: 'rw,username={{ hostvars["labdata"]["username"] }},password={{ hostvars["labdata"]["password"] }}'
+      opts: 'ro,username={{ hostvars["labdata"]["username"] }},password={{ hostvars["labdata"]["password"] }}'
 
-  # - name: Mount the network drive
-  #   block:
-  #   - name: Mount the novogene archive drive
-  #     command: echo TODO
-  #   - name: Mount to internal Arnold lab drive with spreadsheet data.
-  #     command: echo TODO
+  - name: Mount the archive drive (ro)
+    become_user: root
+    mount:
+      src: 'UUID={{ hostvars["rpi5"]["novogene_drive_uuid"] }}'
+      path: '{{ hostvars["rpi5"]["novogene_folder"] }}'
+      fstype: ext4
+      opts: ro
+      state: mounted
 
-
-        # - name: Generate email systemd file
-        #   become_user: dietpi
-        #   copy:
-        #     dest: '/home/{{ ansible_user }}/.config/systemd/user/novogene.service'
-        #     content: |
-        #       [Unit]
-        #       Description=Novogene Mailbox checker
-        #       After=gmi.service
-
-        #       [Service]
-        #       Type=oneshot
-        #       ExecStart=bash /home/memo/EMAIL/gmail/.notmuch/hooks/novogene_run.sh FIX THIS
-
-        #       [Install]
-        #       WantedBy=default.target
+  # - name: Generate email systemd file
+  #   become_user: dietpi
+  #   copy:
+  #     dest: '/home/{{ ansible_user }}/.config/systemd/user/novogene.service'
+  #     content: |
+  #       [Unit]
+  #       Description=Novogene Mailbox checker
+  #       After=gmi.service
+  #
+  #       [Service]
+  #       Type=oneshot
+  #       ExecStart=bash /home/memo/EMAIL/gmail/.notmuch/hooks/novogene_run.sh FIX THIS
+  #
+  #       [Install]
+  #       WantedBy=default.target
